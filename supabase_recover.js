@@ -1,12 +1,8 @@
 const SUPABASE_URL = 'https://hfbrykuqnakhjllcupik.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmYnJ5a3VxbmFraGpsbGN1cGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5ODAyNDksImV4cCI6MjA3NDU1NjI0OX0.wcSHmKqVNdAkEukf2hBk57lJvYSTygl8FIeUTlmJrJU';
 
-// Carga el script de Supabase JS si no está presente
-
 function debugLog(msg) {
-  try {
-    console.log('[RECOVER]', msg);
-  } catch (_) {}
+  try { console.log('[RECOVER]', msg); } catch (_) {}
   var dbg = document.getElementById('debugLog');
   if (!dbg) {
     dbg = document.createElement('div');
@@ -36,7 +32,7 @@ function handleRecover() {
   debugLog('handleRecover() called');
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
-  const type = params.get('type'); // puede ser 'recovery' o 'signup' o 'invite' o 'magiclink'
+  const type = params.get('type');
   debugLog('Parámetro code: ' + code);
   debugLog('Parámetro type: ' + type);
   if (!code) {
@@ -62,60 +58,44 @@ function handleRecover() {
         debugLog('Error de Supabase: ' + error.message);
         return;
       }
-      // Si el link es de confirmación de email (signup/invite/magiclink), loguea y redirige
-      if (type === 'signup' || type === 'invite' || type === 'magiclink') {
-        document.getElementById('status').textContent = '¡Cuenta confirmada! Redirigiendo a la app...';
-        debugLog('Cuenta confirmada, redirigiendo...');
-        window.localStorage.setItem('sb-session', JSON.stringify(data.session));
+      // Redirige a la app con los tokens
+      if (data.session && data.session.access_token && data.session.refresh_token) {
+        const usp = new URLSearchParams();
+        usp.set('access_token', data.session.access_token);
+        usp.set('refresh_token', data.session.refresh_token);
+        usp.set('type', 'recovery');
+        const target = 'festify://auth-callback#' + usp.toString();
+        debugLog('Redirigiendo a deep link: ' + target);
+        window.location.replace(target);
         setTimeout(function() {
-          window.location.href = 'https://festify.cloud/';
+          document.getElementById('status').textContent = 'Si no se abre la app, pulsa el botón o copia el enlace.';
+          // Mostrar botón y enlace manual
+          let btn = document.getElementById('openBtn');
+          if (!btn) {
+            btn = document.createElement('a');
+            btn.id = 'openBtn';
+            btn.className = 'btn';
+            btn.textContent = 'Abrir Festify';
+            btn.style = 'display:inline-block;margin-top:18px;background:#6F3DFA;padding:12px 18px;border-radius:14px;color:#fff;text-decoration:none;font-weight:600;letter-spacing:.2px;cursor:pointer;';
+            btn.onclick = function() { window.location.href = target; };
+            document.querySelector('main').appendChild(btn);
+          }
+          let codeEl = document.getElementById('scheme');
+          if (!codeEl) {
+            codeEl = document.createElement('code');
+            codeEl.id = 'scheme';
+            codeEl.style = 'display:block;margin-top:10px;background:#241C3B;padding:6px 8px;border-radius:8px;font-size:13px;word-break:break-all;';
+            document.querySelector('main').appendChild(codeEl);
+          }
+          codeEl.textContent = target;
         }, 1200);
         return;
       }
-      // Si es recuperación de contraseña, muestra el formulario
-      document.getElementById('status').textContent = '¡Código válido! Ahora puedes establecer una nueva contraseña.';
-      debugLog('Código válido, mostrando formulario');
-      showPasswordForm(supabase, data.session);
+      document.getElementById('status').textContent = 'No se pudo obtener los tokens de sesión.';
+      debugLog('No se pudo obtener access_token/refresh_token');
     })
     .catch(function(e){
       document.getElementById('status').textContent = 'Error inesperado: ' + e;
       debugLog('Error inesperado: ' + e);
     });
-}
-
-function showPasswordForm(supabase, session) {
-  const main = document.querySelector('main');
-  main.innerHTML = `
-    <h1>Establecer nueva contraseña</h1>
-    <form id="pwForm">
-      <input type="password" id="pw1" placeholder="Nueva contraseña" required minlength="8" style="padding:10px;font-size:16px;width:90%;margin-bottom:12px;border-radius:8px;border:1px solid #ccc"><br>
-      <input type="password" id="pw2" placeholder="Repetir contraseña" required minlength="8" style="padding:10px;font-size:16px;width:90%;margin-bottom:12px;border-radius:8px;border:1px solid #ccc"><br>
-      <button type="submit" style="padding:12px 28px;font-size:16px;border-radius:8px;background:#6F3DFA;color:#fff;font-weight:bold;border:none">Guardar contraseña</button>
-    </form>
-    <div id="pwStatus" style="margin-top:18px;color:#F55;font-weight:bold"></div>
-  `;
-  document.getElementById('pwForm').onsubmit = function(e) {
-    e.preventDefault();
-    const pw1 = document.getElementById('pw1').value;
-    const pw2 = document.getElementById('pw2').value;
-    if (pw1 !== pw2) {
-      document.getElementById('pwStatus').textContent = 'Las contraseñas no coinciden.';
-      return;
-    }
-    supabase.auth.updateUser({ password: pw1 })
-      .then(async ({ error }) => {
-        if (error) {
-          document.getElementById('pwStatus').textContent = 'Error: ' + error.message;
-        } else {
-          document.getElementById('pwStatus').style.color = '#0A0';
-          document.getElementById('pwStatus').textContent = '¡Contraseña cambiada! Redirigiendo a la app...';
-          // Obtén la sesión actualizada y guárdala
-          const { data } = await supabase.auth.getSession();
-          window.localStorage.setItem('sb-session', JSON.stringify(data.session || session));
-          setTimeout(function() {
-            window.location.href = 'https://festify.cloud/';
-          }, 1200);
-        }
-      });
-};
 }
