@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "routes": [
+    { "src": "/recover/?", "dest": "/recover/index.html" },
+    { "src": "/verify/?",  "dest": "/verify/index.html" }
+  ]
+}
