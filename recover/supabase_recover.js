@@ -1,9 +1,5 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-// Reemplaza estos valores por tus variables de entorno en Vercel:
-// SUPABASE_URL y SUPABASE_ANON_KEY
-const SUPABASE_URL = '<YOUR_SUPABASE_URL>';
-const SUPABASE_ANON_KEY = '<YOUR_SUPABASE_ANON_KEY>';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '/config.js';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -16,7 +12,6 @@ form.addEventListener('submit', async (e) => {
   if (!email) return;
   msg.textContent = 'Enviando enlace...';
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    // redirectTo: si quieres que el enlace de recuperación vuelva a tu /verify:
     redirectTo: window.location.origin + '/verify'
   });
   if (error) {
